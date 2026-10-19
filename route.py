@@ -5,6 +5,7 @@ import os
 import gpxpy
 import gpxpy.gpx
 import requests
+from concurrent.futures import ThreadPoolExecutor
 
 ORS = "https://api.openrouteservice.org"
 UA = {"User-Agent": "runcoach-personal/1.0"}
@@ -45,12 +46,14 @@ def _round_trip(lat, lon, meters, seed, profile):
 
 def build_route(lat, lon, target_m, allow_hills=False, attempts=6, profile="foot-walking"):
     """מנסה כמה seeds; ברירת מחדל בוחר את המסלול הכי מישורי שקרוב לאורך המבוקש."""
-    cands = []
-    for seed in range(attempts):
+    def one(seed):
         try:
-            cands.append(_round_trip(lat, lon, target_m, seed, profile))
-        except requests.HTTPError:
-            continue
+            return _round_trip(lat, lon, target_m, seed, profile)
+        except requests.RequestException:
+            return None
+
+    with ThreadPoolExecutor(attempts) as ex:
+        cands = [c for c in ex.map(one, range(attempts)) if c]
     if not cands:
         raise RuntimeError("OpenRouteService לא החזיר מסלול (בדוק מפתח/מכסה)")
 

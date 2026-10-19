@@ -3,9 +3,10 @@ import json
 import os
 import random
 
-import anthropic
 import spotipy
+from spotipy.cache_handler import CacheHandler
 from spotipy.oauth2 import SpotifyPKCE
+from concurrent.futures import ThreadPoolExecutor
 
 import planner
 
@@ -24,6 +25,7 @@ WALK_ARTISTS = ["Omer Adam", "Eden Ben Zaken", "Sarit Hadad", "Moshe Peretz", "E
 def suggest(genres: str) -> dict:
     """עם מפתח Anthropic: שירים לפי BPM. בלי מפתח: חיפוש ב-Spotify (אמנים ישראליים קצביים, או לפי הסגנון)."""
     if os.getenv("ANTHROPIC_API_KEY"):
+        import anthropic
         msg = anthropic.Anthropic().messages.create(
             model="claude-sonnet-5-5", max_tokens=4000,
             messages=[{"role": "user", "content": PROMPT.format(genres=genres)}])
@@ -36,9 +38,15 @@ def suggest(genres: str) -> dict:
             "walk": [{"q": f"{genres} walking"}, {"q": f"{genres} happy"}, {"q": f"{genres} upbeat"}]}
 
 
-from paths import DATA_DIR
+import storage
 
-CACHE = str(DATA_DIR / ".spotify_cache")
+
+class StoreCache(CacheHandler):
+    def get_cached_token(self):
+        return storage.get("spotify_token")
+
+    def save_token_to_cache(self, token_info):
+        storage.set("spotify_token", token_info)
 
 
 _auth = None
@@ -50,14 +58,14 @@ def auth():
     cid = os.getenv("SPOTIPY_CLIENT_ID")
     if _auth is None or _auth.client_id != cid:
         _auth = SpotifyPKCE(
-            client_id=cid, scope="playlist-modify-private", cache_path=CACHE, open_browser=False,
+            client_id=cid, scope="playlist-modify-private", cache_handler=StoreCache(), open_browser=False,
             redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI", "http://127.0.0.1:5000/callback"))
     return _auth
 
 
 def is_connected() -> bool:
     try:
-        return bool(auth().validate_token(auth().cache_handler.get_cached_token()))
+        return bool(auth().cache_handler.get_cached_token())
     except Exception:
         return False
 
@@ -73,16 +81,20 @@ def _track(t, bpm=None):
             "seconds": t["duration_ms"] // 1000, "bpm": bpm}
 
 
+def _resolve_one(client, it):
+    if "q" in it:  # חיפוש חופשי: עד 4 שירים באורך סביר
+        res = client.search(q=it["q"], type="track", limit=10, market="IL")["tracks"]["items"]
+        return [_track(t) for t in res if 120_000 <= t["duration_ms"] <= 300_000][:4]
+    res = client.search(q=f'{it["title"]} {it["artist"]}', type="track", limit=1,
+                        market="IL")["tracks"]["items"]
+    return [_track(res[0], it.get("bpm"))] if res else []
+
+
 def resolve(client, items):
+    with ThreadPoolExecutor(8) as ex:
+        results = list(ex.map(lambda it: _resolve_one(client, it), items))
     out, seen = [], set()
-    for it in items:
-        if "q" in it:  # חיפוש חופשי: עד 4 שירים באורך סביר
-            res = client.search(q=it["q"], type="track", limit=10, market="IL")["tracks"]["items"]
-            found = [_track(t) for t in res if 120_000 <= t["duration_ms"] <= 300_000][:4]
-        else:
-            res = client.search(q=f'{it["title"]} {it["artist"]}', type="track", limit=1,
-                                market="IL")["tracks"]["items"]
-            found = [_track(res[0], it.get("bpm"))] if res else []
+    for found in results:
         for t in found:
             if t["uri"] not in seen:
                 seen.add(t["uri"])

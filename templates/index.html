@@ -119,6 +119,11 @@ details>summary::after{content:"▾";color:var(--mut)}details[open]>summary::aft
    <div id="ga_mfa_row" hidden><label>קוד אימות (MFA)</label><input id="ga_mfa" inputmode="numeric" dir="ltr"></div>
    <button id="ga_go" class="sm" type="button">התחבר</button> <span class="hint" id="ga_msg"></span>
    <p class="hint">הסיסמה נשלחת רק לשרת שלך ולא נשמרת. נשמרים טוקנים בלבד.</p>
+   <details style="margin-top:10px"><summary class="hint" style="justify-content:flex-start;gap:6px">יש קוד אימות (MFA) או חסימה? התחברות דרך המחשב</summary>
+    <p class="hint">הרץ במחשב <code>python garmin_login.py</code>, והדבק כאן את מה שהועתק:</p>
+    <textarea id="ga_tokens" dir="ltr" style="min-height:70px" placeholder="הדבק טוקנים"></textarea>
+    <button id="ga_tok_go" class="sm" type="button">שמור טוקנים</button>
+   </details>
   </div>
 
   <div class="panel" id="ors_form" hidden>
@@ -201,6 +206,7 @@ function chip(id,on,text){const c=$(id);c.classList.toggle("on",on);c.lastChild.
 async function refresh(){
  const s=await (await fetch("/api/status")).json();
  spConfigured=s.spotify_configured;
+ if(s.storage===false){$("conn_d").open=true;$("sp_chip").insertAdjacentHTML("beforebegin",'<p class="hint err" style="width:100%">'+esc(s.error)+'</p>')}
  chip("sp_chip",s.spotify,s.spotify?"Spotify מחובר":"Spotify");
  chip("ga_chip",s.garmin,s.garmin?"Garmin מחובר":"Garmin");
  chip("ors_chip",s.ors,s.ors?"מסלולים מוגדר":"מסלולים");
@@ -219,6 +225,12 @@ $("sp_save").onclick=async()=>{
  location.href="/spotify/login";
 };
 $("ga_chip").onclick=()=>toggle("ga_form");
+$("ga_tok_go").onclick=async()=>{
+ $("ga_msg").textContent="בודק...";
+ const r=await post("/api/garmin/tokens",{tokens:$("ga_tokens").value});
+ if(r.error){$("ga_msg").innerHTML=`<span class=err>${esc(r.error)}</span>`;return}
+ $("ga_tokens").value="";$("ga_form").hidden=true;refresh();
+};
 $("ors_chip").onclick=()=>toggle("ors_form");
 $("ors_save").onclick=async()=>{
  const r=await post("/api/ors/setup",{key:$("ors_key").value});

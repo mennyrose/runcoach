@@ -1,5 +1,4 @@
 """העלאת מסלול ואימון ל-Garmin Connect (ספרייה לא רשמית)."""
-import os
 import tempfile
 from pathlib import Path
 
@@ -8,49 +7,68 @@ from garminconnect.workout import (RunningWorkout, WorkoutSegment, create_cooldo
                                    create_interval_step, create_recovery_step,
                                    create_repeat_group, create_warmup_step)
 
-from paths import DATA_DIR
+import storage
 
-# מקומית נשארים בנתיב הקודם כדי לא לאבד חיבור קיים; בענן (DATA_DIR) הטוקנים בדיסק הקבוע
-TOKENS = str(DATA_DIR / ".garminconnect") if os.getenv("DATA_DIR") else str(Path.home() / ".garminconnect")
+KEY = "garmin_tokens"
 _api = None
-
-
 _pending_mfa = None
 
 
+def _legacy_tokens():
+    """חיבור מקומי קיים מגרסאות קודמות (~/.garminconnect)."""
+    p = Path.home() / ".garminconnect"
+    if not storage.IN_CLOUD and p.exists():
+        g = Garmin()
+        g.login(str(p))
+        return g.client.dumps()
+
+
 def api():
-    """חיבור מתוך טוקנים שנשמרו בהתחברות מהכפתור. הסיסמה לא נשמרת."""
+    """חיבור מתוך טוקנים ששמורים באחסון. הסיסמה לא נשמרת."""
     global _api
     if _api is None:
+        tokens = storage.get(KEY) or _legacy_tokens()
+        if not tokens:
+            raise RuntimeError("Garmin לא מחובר")
         g = Garmin()
-        g.login(TOKENS)
+        g.login(tokens)
+        storage.set(KEY, g.client.dumps())  # שומר גם טוקן שהתחדש
         _api = g
     return _api
 
 
 def is_connected() -> bool:
-    try:
-        api()
-        return True
-    except Exception:
-        return False
+    return bool(storage.get(KEY)) or (not storage.IN_CLOUD and (Path.home() / ".garminconnect").exists())
 
 
 def connect(email: str, password: str, mfa_code: str | None = None) -> dict:
-    """התחברות ראשונית. מחזיר {"ok": True} או {"mfa": True} אם נדרש קוד אימות."""
+    """התחברות ראשונית. מחזיר {"ok": True} או {"mfa": True} אם נדרש קוד אימות (מקומית בלבד)."""
     global _api, _pending_mfa
     if mfa_code and _pending_mfa:
         g, state = _pending_mfa
         g.resume_login(state, mfa_code)
-        g.client.dump(TOKENS)
+        storage.set(KEY, g.client.dumps())
         _api, _pending_mfa = g, None
         return {"ok": True}
     g = Garmin(email, password, return_on_mfa=True)
-    needs_mfa, state = g.login(TOKENS)
+    needs_mfa, state = g.login()
     if needs_mfa:
+        if storage.IN_CLOUD:
+            raise RuntimeError("בחשבון שלך נדרש קוד אימות (MFA), וזה לא נתמך בענן. "
+                               "הרץ במחשב garmin_login.py והדבק כאן את הטוקנים.")
         _pending_mfa = (g, state)
         return {"mfa": True}
-    g.client.dump(TOKENS)
+    storage.set(KEY, g.client.dumps())
+    _api = g
+    return {"ok": True}
+
+
+def import_tokens(text: str) -> dict:
+    """הדבקת טוקנים שנוצרו במחשב (garmin_login.py). מאמת שהם עובדים."""
+    global _api
+    g = Garmin()
+    g.login(text.strip())
+    storage.set(KEY, g.client.dumps())
     _api = g
     return {"ok": True}
 

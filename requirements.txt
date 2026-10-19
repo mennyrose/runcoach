@@ -3,6 +3,4 @@ requests
 gpxpy
 garminconnect
 spotipy
-anthropic
 python-dotenv
-gunicorn
