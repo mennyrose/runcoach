@@ -6,8 +6,15 @@ import requests
 
 from paths import DATA_DIR
 
-URL = os.getenv("KV_REST_API_URL") or os.getenv("UPSTASH_REDIS_REST_URL")
-TOKEN = os.getenv("KV_REST_API_TOKEN") or os.getenv("UPSTASH_REDIS_REST_TOKEN")
+def _find(suffixes, exclude=()):
+    """Vercel מוסיף קידומת לפי הבחירה בחיבור (KV_, UPSTASH_REDIS_, STORAGE_ ...), לכן מחפשים לפי סיומת."""
+    for k, v in os.environ.items():
+        if v and k.endswith(suffixes) and not any(x in k for x in exclude):
+            return v
+
+
+URL = _find(("REST_API_URL", "REDIS_REST_URL"))
+TOKEN = _find(("REST_API_TOKEN", "REDIS_REST_TOKEN"), exclude=("READ_ONLY",))
 IN_CLOUD = bool(os.getenv("VERCEL") or os.getenv("RENDER") or os.getenv("FLY_APP_NAME"))
 LOCAL = DATA_DIR / ".store"
 
