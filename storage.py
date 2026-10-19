@@ -15,6 +15,7 @@ def _find(suffixes, exclude=()):
 
 URL = _find(("REST_API_URL", "REDIS_REST_URL"))
 TOKEN = _find(("REST_API_TOKEN", "REDIS_REST_TOKEN"), exclude=("READ_ONLY",))
+REDIS_URL = os.getenv("REDIS_URL") or _find(("_REDIS_URL",), exclude=("REST",))
 IN_CLOUD = bool(os.getenv("VERCEL") or os.getenv("RENDER") or os.getenv("FLY_APP_NAME"))
 LOCAL = DATA_DIR / ".store"
 
@@ -25,15 +26,29 @@ def _cmd(*args):
     return r.json().get("result")
 
 
+_redis = None
+
+
+def _r():
+    global _redis
+    if _redis is None:
+        import redis
+        _redis = redis.Redis.from_url(REDIS_URL, decode_responses=True, socket_timeout=10)
+    return _redis
+
+
 def _check():
-    if IN_CLOUD and not URL:
-        raise RuntimeError("חסר אחסון: חבר Upstash Redis לפרויקט ב-Vercel (Storage)")
+    if IN_CLOUD and not (URL or REDIS_URL):
+        raise RuntimeError("חסר אחסון: חבר מסד Redis לפרויקט ב-Vercel (Storage)")
 
 
 def get(key):
     _check()
     if URL:
         v = _cmd("GET", key)
+        return json.loads(v) if v else None
+    if REDIS_URL:
+        v = _r().get(key)
         return json.loads(v) if v else None
     p = LOCAL / f"{key}.json"
     return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
@@ -43,6 +58,9 @@ def set(key, value):
     _check()
     if URL:
         _cmd("SET", key, json.dumps(value))
+        return
+    if REDIS_URL:
+        _r().set(key, json.dumps(value))
         return
     LOCAL.mkdir(parents=True, exist_ok=True)
     (LOCAL / f"{key}.json").write_text(json.dumps(value), encoding="utf-8")

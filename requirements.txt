@@ -4,3 +4,4 @@ gpxpy
 garminconnect
 spotipy
 python-dotenv
+redis
