@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: runcoach
+    runtime: docker
+    plan: starter            # דיסק קבוע דורש תוכנית בתשלום
+    healthCheckPath: /login
+    disk:
+      name: runcoach-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: DATA_DIR
+        value: /data
+      - key: APP_PASSWORD
+        sync: false          # מזינים ב-Render, לא ב-git
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ORS_API_KEY
+        sync: false
+      - key: DEFAULT_ADDRESS
+        value: טרומפלדור 4, קרית אתא

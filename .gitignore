@@ -1,0 +1,5 @@
+.env
+.spotify_cache
+.garminconnect
+__pycache__/
+*.pyc

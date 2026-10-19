@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>RunCoach</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{
+ --bg:#f2f5f4;--card:#fff;--fg:#14201e;--mut:#5d6b68;--bd:#e1e8e6;
+ --ac:#0f766e;--ac-fg:#fff;--ac-soft:#d8f0ec;
+ --run:#ea580c;--run-soft:#ffe9dc;--walk:#0ea5a4;--walk-soft:#d4f3f2;
+ --ok:#15803d;--err:#b91c1c;--shadow:0 1px 2px rgba(10,30,28,.06),0 4px 14px rgba(10,30,28,.05)
+}
+@media(prefers-color-scheme:dark){:root{
+ --bg:#0d1514;--card:#16211f;--fg:#e7f0ee;--mut:#93a5a1;--bd:#243431;
+ --ac:#2dd4bf;--ac-fg:#042f2a;--ac-soft:#12322e;
+ --run:#fb923c;--run-soft:#3a2417;--walk:#2dd4bf;--walk-soft:#123430;
+ --ok:#4ade80;--err:#f87171;--shadow:none}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+ padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+main{max-width:560px;margin:0 auto;padding:0 16px}
+header{padding:calc(18px + env(safe-area-inset-top)) 0 6px;display:flex;align-items:center;gap:12px}
+.logo{width:44px;height:44px;border-radius:14px;background:var(--ac);display:grid;place-items:center;flex:none}
+.logo svg{width:26px;height:26px;stroke:var(--ac-fg)}
+h1{font-size:22px;margin:0;line-height:1.15}header p{margin:0;color:var(--mut);font-size:14px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:18px;padding:16px;margin:14px 0;box-shadow:var(--shadow)}
+.card h2{font-size:16px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.card h2 .n{background:var(--ac-soft);color:var(--ac);width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:13px;flex:none}
+label{display:block;font-size:13px;font-weight:600;color:var(--mut);margin:12px 0 5px}
+input[type=text],input[type=email],input[type=password],input[type=date],input:not([type]),textarea{
+ width:100%;min-height:48px;padding:11px 13px;border:1.5px solid var(--bd);border-radius:12px;background:var(--bg);color:var(--fg);font:inherit;font-size:16px;appearance:none}
+textarea{min-height:104px;resize:vertical;line-height:1.5}
+input:focus,textarea:focus{outline:none;border-color:var(--ac);box-shadow:0 0 0 3px var(--ac-soft)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{font:inherit;font-weight:700;border:0;border-radius:14px;min-height:50px;padding:0 20px;cursor:pointer;background:var(--ac);color:var(--ac-fg);width:100%;margin-top:14px}
+button.sec{background:var(--ac-soft);color:var(--ac)}
+button.sm{min-height:42px;font-size:14px;width:auto;margin:8px 0 0;padding:0 16px}
+button:disabled{opacity:.55}
+a{color:var(--ac);font-weight:600}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--bd);background:var(--card);color:var(--mut);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;min-height:36px;width:auto;margin:0}
+.chip i{width:8px;height:8px;border-radius:50%;background:var(--err);display:block}
+.chip.on{color:var(--ok);border-color:transparent;background:var(--ac-soft)}.chip.on i{background:var(--ok)}
+.hint{font-size:13px;color:var(--mut);margin:6px 0 0}
+.panel{background:var(--bg);border-radius:14px;padding:12px;margin-top:10px}
+.panel[hidden]{display:none}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--bd);margin:0;font-size:15px;font-weight:500;color:var(--fg)}
+.switch:first-of-type{border-top:0}
+.switch input{appearance:none;width:50px;height:30px;border-radius:15px;background:var(--bd);position:relative;flex:none;margin:0;transition:.15s}
+.switch input::after{content:"";position:absolute;top:3px;inset-inline-start:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.15s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.switch input:checked{background:var(--ac)}.switch input:checked::after{inset-inline-start:23px}
+.tl{display:flex;height:34px;border-radius:10px;overflow:hidden;gap:2px;margin:6px 0}
+.tl div{min-width:2px;border-radius:3px}.tl .run{background:var(--run)}.tl .walk{background:var(--walk)}
+.legend{display:flex;gap:14px;font-size:13px;color:var(--mut);margin:6px 0 10px}
+.legend b{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:5px;vertical-align:-1px}
+.steps{list-style:none;margin:0;padding:0}
+.steps li{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--bd)}
+.steps li:first-child{border-top:0}
+.dot{width:10px;height:36px;border-radius:5px;flex:none}.dot.run{background:var(--run)}.dot.walk{background:var(--walk)}
+.steps .t{font-weight:600}.steps .s{color:var(--mut);font-size:13px}
+.stats{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 10px}
+.stat{background:var(--bg);border-radius:12px;padding:8px 12px;font-size:13px;color:var(--mut)}
+.stat b{display:block;font-size:18px;color:var(--fg)}
+#map{height:280px;border-radius:14px;margin-top:6px;z-index:0}
+.tracks{list-style:none;margin:0;padding:0;max-height:340px;overflow:auto}
+.tracks li{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--bd)}
+.tracks li:first-child{border-top:0}
+.tracks .b{font-size:11px;font-weight:700;border-radius:8px;padding:3px 8px;flex:none}
+.tracks .b.run{background:var(--run-soft);color:var(--run)}.tracks .b.walk{background:var(--walk-soft);color:var(--walk)}
+.tracks .tt{min-width:0}.tracks .tt div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tracks .tt small{color:var(--mut)}
+.tracks .d{margin-inline-start:auto;color:var(--mut);font-size:13px;flex:none}
+.err{color:var(--err)}.ok{color:var(--ok)}
+.res{display:flex;gap:8px;align-items:flex-start;padding:8px 0;font-size:14px}
+.bar{position:fixed;inset-inline:0;bottom:0;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-top:1px solid var(--bd);z-index:10}
+.bar button{max-width:528px;margin:0 auto;display:block}
+.bar[hidden]{display:none}
+details>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-weight:700}
+details>summary::-webkit-details-marker{display:none}
+details>summary::after{content:"▾";color:var(--mut)}details[open]>summary::after{content:"▴"}
+.spin{display:inline-block;width:16px;height:16px;border:2.5px solid currentColor;border-top-color:transparent;border-radius:50%;animation:s .7s linear infinite;vertical-align:-3px;margin-inline-end:8px}
+@keyframes s{to{transform:rotate(360deg)}}
+</style></head>
+<body><main>
+
+<header>
+ <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="14" cy="4.5" r="1.8"/><path d="M8 21l3-6 3 2 1-5-3-2-3 2-2 3"/><path d="M12 11l3 1 2-3"/></svg></div>
+ <div><h1>RunCoach</h1><p>אימון, מסלול ומוזיקה לשעון</p></div>
+</header>
+
+<div class="card" id="conn">
+ <details id="conn_d">
+  <summary>חיבורים</summary>
+  <div class="chips" style="margin-top:12px">
+   <button class="chip" id="sp_chip" type="button"><i></i>Spotify</button>
+   <button class="chip" id="ga_chip" type="button"><i></i>Garmin</button>
+   <button class="chip" id="ors_chip" type="button"><i></i>מסלולים</button>
+  </div>
+
+  <div class="panel" id="sp_setup" hidden>
+   <b>חיבור Spotify</b>
+   <div id="sp_first">
+    <p class="hint">הגדרה חד-פעמית: ב-<a href="https://developer.spotify.com/dashboard" target="_blank">developer.spotify.com/dashboard</a> צור אפליקציה, ב-Redirect URI הדבק את הכתובת למטה, סמן Web API, והעתק את ה-Client ID.</p>
+    <p class="hint" dir="ltr" id="redir" style="user-select:all"></p>
+    <input id="sp_cid" dir="ltr" placeholder="Client ID">
+    <button id="sp_save" class="sm" type="button">שמור והמשך</button> <span class="hint" id="sp_msg"></span>
+   </div>
+   <button id="sp_login" class="sm" type="button" hidden>התחבר ל-Spotify (אפשר עם גוגל)</button>
+  </div>
+
+  <div class="panel" id="ga_form" hidden>
+   <b>חיבור Garmin</b>
+   <label>אימייל</label><input id="ga_email" type="email" autocomplete="username" dir="ltr">
+   <label>סיסמה</label><input id="ga_pass" type="password" autocomplete="current-password" dir="ltr">
+   <div id="ga_mfa_row" hidden><label>קוד אימות (MFA)</label><input id="ga_mfa" inputmode="numeric" dir="ltr"></div>
+   <button id="ga_go" class="sm" type="button">התחבר</button> <span class="hint" id="ga_msg"></span>
+   <p class="hint">הסיסמה נשלחת רק לשרת שלך ולא נשמרת. נשמרים טוקנים בלבד.</p>
+  </div>
+
+  <div class="panel" id="ors_form" hidden>
+   <b>מפתח מסלולים</b>
+   <p class="hint">הרשמה חינמית ב-<a href="https://openrouteservice.org/dev/#/signup" target="_blank">openrouteservice.org</a>, ואז Request a token (Free).</p>
+   <input id="ors_key" dir="ltr" placeholder="API key">
+   <button id="ors_save" class="sm" type="button">שמור</button> <span class="hint" id="ors_msg"></span>
+  </div>
+ </details>
+</div>
+
+<div class="card">
+ <h2><span class="n">1</span>האימון</h2>
+ <label for="plan">התוכנית (טקסט חופשי)</label>
+ <textarea id="plan">5 דק' הליכה מהירה, 8 סבבים של דקה אחת ריצה - דקה וחצי הליכה מהירה, לבסוף 3 דקות הליכה מהירה</textarea>
+
+ <label for="address">כתובת התחלה</label>
+ <input id="address" value="{{ default_address }}" autocomplete="street-address">
+
+ <div class="grid2">
+  <div><label for="date">תאריך</label><input id="date" type="date" value="{{ today }}"></div>
+  <div><label for="genres">סגנון מוזיקה</label><input id="genres" value="מוזיקה ישראלית קצבית"></div>
+ </div>
+ <div class="grid2">
+  <div><label for="run_pace">קצב ריצה (דק' לק"מ)</label><input id="run_pace" value="6:30" inputmode="decimal"></div>
+  <div><label for="walk_kmh">הליכה מהירה (קמ"ש)</label><input id="walk_kmh" value="6" inputmode="decimal"></div>
+ </div>
+ <label class="switch" style="margin-top:8px"><span>לאפשר עליות<br><small class="hint">כבוי = מסלול מישורי</small></span><input type="checkbox" id="hills"></label>
+ <button id="go" type="button">בנה לי אימון</button>
+ <p class="hint" id="status"></p>
+</div>
+
+<div id="result" hidden>
+ <div class="card">
+  <h2><span class="n">2</span>האימון שלך</h2>
+  <div class="tl" id="tl"></div>
+  <div class="legend"><span><b style="background:var(--walk)"></b>הליכה</span><span><b style="background:var(--run)"></b>ריצה</span></div>
+  <ul class="steps" id="plansum"></ul>
+  <div class="stats" id="planstats"></div>
+ </div>
+
+ <div class="card">
+  <h2><span class="n">3</span>המסלול</h2>
+  <div class="stats" id="routestats"></div>
+  <div id="routemsg"></div>
+  <div id="map"></div>
+  <a id="gmaps" href="#" target="_blank"><button class="sec" type="button" style="margin-top:10px">פתח בגוגל מפות</button></a>
+ </div>
+
+ <div class="card">
+  <h2><span class="n">4</span>רשימת השמעה</h2>
+  <div id="tracks"></div>
+ </div>
+
+ <div class="card">
+  <h2><span class="n">5</span>שליחה לשעון</h2>
+  <label class="switch"><span>מסלול ל-Garmin Connect</span><input type="checkbox" id="t_course" checked></label>
+  <label class="switch"><span>אימון ביומן Garmin</span><input type="checkbox" id="t_workout" checked></label>
+  <label class="switch"><span>פלייליסט ב-Spotify</span><input type="checkbox" id="t_playlist" checked></label>
+  <div id="sendres"></div>
+ </div>
+</div>
+</main>
+
+<div class="bar" id="bar" hidden><button id="send" type="button">שלח לשעון</button></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+let map,layer,spConfigured=false;
+const fmt=s=>Math.floor(s/60)+":"+String(s%60).padStart(2,"0");
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+async function post(u,b){const r=await fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});return r.json()}
+const label=k=>k=="run"?"ריצה":"הליכה מהירה";
+function expand(blocks){const o=[];blocks.forEach(b=>{if(b.repeat){for(let i=0;i<b.repeat;i++)b.steps.forEach(s=>o.push([s.kind,s.seconds]))}else o.push([b.kind,b.seconds])});return o}
+
+/* ---------- חיבורים ---------- */
+$("redir").textContent=location.origin+"/callback";
+function chip(id,on,text){const c=$(id);c.classList.toggle("on",on);c.lastChild.textContent=text}
+async function refresh(){
+ const s=await (await fetch("/api/status")).json();
+ spConfigured=s.spotify_configured;
+ chip("sp_chip",s.spotify,s.spotify?"Spotify מחובר":"Spotify");
+ chip("ga_chip",s.garmin,s.garmin?"Garmin מחובר":"Garmin");
+ chip("ors_chip",s.ors,s.ors?"מסלולים מוגדר":"מסלולים");
+ if(!(s.spotify&&s.garmin&&s.ors))$("conn_d").open=true;
+}
+refresh();
+const toggle=id=>{["sp_setup","ga_form","ors_form"].forEach(x=>$(x).hidden=x!=id||!$(x).hidden)};
+$("sp_chip").onclick=()=>{
+ toggle("sp_setup");
+ $("sp_first").hidden=spConfigured;$("sp_login").hidden=!spConfigured;
+};
+$("sp_login").onclick=()=>{location.href="/spotify/login"};
+$("sp_save").onclick=async()=>{
+ const r=await post("/api/spotify/setup",{client_id:$("sp_cid").value});
+ if(r.error){$("sp_msg").innerHTML=`<span class=err>${esc(r.error)}</span>`;return}
+ location.href="/spotify/login";
+};
+$("ga_chip").onclick=()=>toggle("ga_form");
+$("ors_chip").onclick=()=>toggle("ors_form");
+$("ors_save").onclick=async()=>{
+ const r=await post("/api/ors/setup",{key:$("ors_key").value});
+ if(r.error){$("ors_msg").innerHTML=`<span class=err>${esc(r.error)}</span>`;return}
+ $("ors_form").hidden=true;$("ors_key").value="";refresh();
+};
+$("ga_go").onclick=async()=>{
+ $("ga_go").disabled=true;$("ga_msg").textContent="מתחבר...";
+ const r=await post("/api/garmin/connect",{email:$("ga_email").value,password:$("ga_pass").value,mfa:$("ga_mfa").value});
+ $("ga_go").disabled=false;
+ if(r.error){$("ga_msg").innerHTML=`<span class=err>${esc(r.error)}</span>`;return}
+ if(r.mfa){$("ga_mfa_row").hidden=false;$("ga_msg").textContent="הקלד את הקוד שקיבלת ולחץ שוב.";return}
+ $("ga_pass").value="";$("ga_form").hidden=true;refresh();
+};
+
+/* ---------- תצוגה מקדימה ---------- */
+$("go").onclick=async()=>{
+ $("go").disabled=true;
+ $("status").innerHTML='<span class="spin"></span>בונה מסלול ורשימת השמעה... עד דקה';
+ let d;
+ try{d=await post("/api/preview",{plan:$("plan").value,address:$("address").value,genres:$("genres").value,run_pace:$("run_pace").value,walk_kmh:$("walk_kmh").value,hills:$("hills").checked})}
+ catch(e){d={error:"שגיאת רשת"}}
+ $("go").disabled=false;$("status").textContent="";
+ if(d.error){$("status").innerHTML=`<span class=err>${esc(d.error)}</span>`;return}
+ $("result").hidden=false;$("bar").hidden=false;
+
+ const steps=expand(d.plan.blocks),tot=steps.reduce((a,s)=>a+s[1],0);
+ $("tl").innerHTML=steps.map(([k,s])=>`<div class="${k}" style="flex:${s}"></div>`).join("");
+ $("plansum").innerHTML=d.plan.blocks.map(b=>b.repeat
+  ?`<li><span class="dot run"></span><div><div class="t">${b.repeat} סבבים</div><div class="s">${b.steps.map(s=>label(s.kind)+" "+fmt(s.seconds)).join(" · ")}</div></div></li>`
+  :`<li><span class="dot ${b.kind}"></span><div><div class="t">${label(b.kind)}</div><div class="s">${fmt(b.seconds)} דק'</div></div></li>`).join("");
+ $("planstats").innerHTML=`<div class="stat"><b>${fmt(d.stats.seconds)}</b>משך (דק')</div><div class="stat"><b>${(d.stats.meters/1000).toFixed(1)}</b>ק"מ משוער</div>`;
+
+ const e=d.errors||{};
+ if(d.route){
+  $("routestats").innerHTML=`<div class="stat"><b>${(d.route.meters/1000).toFixed(2)}</b>ק"מ</div><div class="stat"><b>${d.route.ascent} מ'</b>עלייה מצטברת</div>`;
+  $("routemsg").innerHTML="";$("map").hidden=false;$("gmaps").hidden=false;$("gmaps").href=d.route.gmaps;
+  if(!map){map=L.map("map");L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"© OpenStreetMap"}).addTo(map)}
+  if(layer)layer.remove();
+  layer=L.polyline(d.route.coords,{color:"#0f766e",weight:5}).addTo(map);
+  setTimeout(()=>{map.invalidateSize();map.fitBounds(layer.getBounds(),{padding:[14,14]})},60);
+ }else{
+  $("routestats").innerHTML="";$("map").hidden=true;$("gmaps").hidden=true;
+  $("routemsg").innerHTML=`<p class="err">${esc(e.route||"לא נוצר מסלול")}</p>`;
+ }
+ $("tracks").innerHTML=d.tracks
+  ?`<ul class="tracks">${d.tracks.map(t=>`<li><span class="b ${t.kind}">${t.kind=="run"?"ריצה":"הליכה"}</span><div class="tt"><div>${esc(t.title)}</div><small>${esc(t.artist)}</small></div><span class="d">${fmt(t.seconds)}</span></li>`).join("")}</ul>`
+  :`<p class="err">${esc(e.music||"לא נוצרה רשימה")}</p>`;
+ $("result").scrollIntoView({behavior:"smooth"});
+};
+
+/* ---------- שליחה ---------- */
+$("send").onclick=async()=>{
+ const targets=["course","workout","playlist"].filter(k=>$("t_"+k).checked);
+ if(!targets.length)return;
+ $("send").disabled=true;$("send").innerHTML='<span class="spin"></span>שולח...';
+ let r;try{r=await post("/api/send",{targets,date:$("date").value})}catch(e){r={course:"שגיאה: רשת"}}
+ $("send").disabled=false;$("send").textContent="שלח לשעון";
+ const names={course:"מסלול",workout:"אימון",playlist:"פלייליסט"};
+ $("sendres").innerHTML=Object.entries(r).map(([k,v])=>{
+  const bad=String(v).startsWith("שגיאה"),link=/^https?:/.test(v);
+  return `<div class="res ${bad?"err":"ok"}"><b>${names[k]}:</b> ${link?`<a href="${esc(v)}" target="_blank">נפתח ב-Spotify</a>`:esc(v)}</div>`}).join("");
+ $("sendres").scrollIntoView({behavior:"smooth",block:"center"});
+};
+</script></body></html>
