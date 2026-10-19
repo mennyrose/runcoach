@@ -114,8 +114,7 @@ def ors_setup():
 def spotify_login():
     if not os.getenv("SPOTIPY_CLIENT_ID"):
         return redirect("/?spotify_setup=1")
-    os.environ.setdefault("SPOTIPY_REDIRECT_URI", request.url_root + "callback")
-    a = music.auth()
+    a = music.auth(request.url_root + "callback")
     url = a.get_authorize_url()
     storage.set("spotify_pkce", {"v": a.code_verifier, "c": a.code_challenge})  # שורד בין בקשות
     return redirect(url)
@@ -124,9 +123,8 @@ def spotify_login():
 @app.get("/callback")
 def spotify_callback():
     code = request.args.get("code")
-    os.environ.setdefault("SPOTIPY_REDIRECT_URI", request.url_root + "callback")
     if code:
-        a = music.auth()
+        a = music.auth(request.url_root + "callback")
         p = storage.get("spotify_pkce") or {}
         a.code_verifier, a.code_challenge = p.get("v"), p.get("c")
         a.get_access_token(code, check_cache=False)

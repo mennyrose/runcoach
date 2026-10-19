@@ -52,14 +52,14 @@ class StoreCache(CacheHandler):
 _auth = None
 
 
-def auth():
-    """OAuth PKCE של Spotify: דורש רק Client ID (בלי secret). אותו אובייקט משמש ל-login ול-callback."""
+def auth(redirect_uri=None):
+    """OAuth PKCE של Spotify: דורש רק Client ID (בלי secret). redirect_uri נגזר מהכתובת שממנה נכנסים."""
     global _auth
     cid = os.getenv("SPOTIPY_CLIENT_ID")
-    if _auth is None or _auth.client_id != cid:
-        _auth = SpotifyPKCE(
-            client_id=cid, scope="playlist-modify-private", cache_handler=StoreCache(), open_browser=False,
-            redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI", "http://127.0.0.1:5000/callback"))
+    ru = redirect_uri or (_auth.redirect_uri if _auth else None)         or os.getenv("SPOTIPY_REDIRECT_URI", "http://127.0.0.1:5000/callback")
+    if _auth is None or _auth.client_id != cid or _auth.redirect_uri != ru:
+        _auth = SpotifyPKCE(client_id=cid, scope="playlist-modify-private",
+                            cache_handler=StoreCache(), open_browser=False, redirect_uri=ru)
     return _auth
 
 

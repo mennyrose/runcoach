@@ -109,6 +109,7 @@ details>summary::after{content:"▾";color:var(--mut)}details[open]>summary::aft
     <input id="sp_cid" dir="ltr" placeholder="Client ID">
     <button id="sp_save" class="sm" type="button">שמור והמשך</button> <span class="hint" id="sp_msg"></span>
    </div>
+   <p class="hint" id="redir2" dir="ltr" style="user-select:all"></p>
    <button id="sp_login" class="sm" type="button" hidden>התחבר ל-Spotify (אפשר עם גוגל)</button>
   </div>
 
@@ -201,7 +202,7 @@ const label=k=>k=="run"?"ריצה":"הליכה מהירה";
 function expand(blocks){const o=[];blocks.forEach(b=>{if(b.repeat){for(let i=0;i<b.repeat;i++)b.steps.forEach(s=>o.push([s.kind,s.seconds]))}else o.push([b.kind,b.seconds])});return o}
 
 /* ---------- חיבורים ---------- */
-$("redir").textContent=location.origin+"/callback";
+$("redir").textContent=$("redir2").textContent=location.origin+"/callback";
 function chip(id,on,text){const c=$(id);c.classList.toggle("on",on);c.lastChild.textContent=text}
 async function refresh(){
  const s=await (await fetch("/api/status")).json();
